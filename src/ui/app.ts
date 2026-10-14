@@ -255,19 +255,30 @@ export class App {
     this.codeEditor.mark([])
     this.startResults(mutants.length)
 
-    const analysis = await analyse(
-      this.pool,
-      code,
-      tests,
-      mutants,
-      (result, index, done) => {
-        if (token !== this.runToken) return
-        const segment = this.meter.children[index]
-        segment?.setAttribute("data-state", result.verdict.status)
-        this.say(TEXT.progress(done, mutants.length))
-      },
-      () => token !== this.runToken,
-    )
+    let analysis: Awaited<ReturnType<typeof analyse>>
+    try {
+      analysis = await analyse(
+        this.pool,
+        code,
+        tests,
+        mutants,
+        (result, index, done) => {
+          if (token !== this.runToken) return
+          const segment = this.meter.children[index]
+          segment?.setAttribute("data-state", result.verdict.status)
+          this.say(TEXT.progress(done, mutants.length))
+        },
+        () => token !== this.runToken,
+      )
+    } catch (err) {
+      // Never leave the button disabled: say what happened and give the page back.
+      console.error(err)
+      if (token !== this.runToken) return
+      this.setBusy(false)
+      this.results.hidden = true
+      this.say(TEXT.sandboxFailed, "error")
+      return
+    }
     if (token !== this.runToken) return
     this.setBusy(false)
     this.runButton.textContent = TEXT.runAgain

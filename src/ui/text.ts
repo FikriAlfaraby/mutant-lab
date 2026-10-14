@@ -37,6 +37,7 @@ export const TEXT = {
 
   stale: "You changed the code. Break it again to update the results.",
   fixAdded: "Test added at the end of the tests.",
+  sandboxFailed: "The lab could not start its test sandbox in this browser. Reload the page and try again.",
   shared: "Loaded from a shared link. Read the code, then break it.",
   badLink: "This link is damaged, so the examples are shown instead.",
   shortcut: (mac: boolean) => `or press ${mac ? "⌘" : "Ctrl"} Enter in an editor`,

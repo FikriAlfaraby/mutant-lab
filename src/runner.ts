@@ -24,7 +24,8 @@ export class SandboxRunner {
   /** Runs are queued: one worker answers one job at a time, so a reply can never cross runs. */
   run(code: string, tests: string, timeoutMs: number): Promise<RunOutcome> {
     const next = this.queue.then(() => this.exec(code, tests, timeoutMs))
-    this.queue = next
+    // A job that throws must not poison the queue for every run after it.
+    this.queue = next.catch(() => undefined)
     return next
   }
 
