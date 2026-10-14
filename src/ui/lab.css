@@ -132,6 +132,13 @@
   border-radius: var(--ml-radius);
 }
 
+/* Leave room for a sticky site header when the lab scrolls a pane or card into view. */
+.ml-pane,
+.ml-panel,
+.ml-card {
+  scroll-margin-top: 88px;
+}
+
 .ml-pane {
   background: var(--ml-surface);
   border: 1px solid var(--ml-line);
