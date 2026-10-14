@@ -1,0 +1,540 @@
+/* mutant-lab. Reads the host page's tokens (--text, --accent, ...) and falls back to its own.
+   One accent for "caught" (the host's), one warning red for "missed". Radii step down when
+   surfaces nest: panels 14px, cards inside them 10px, code inside cards 8px. */
+
+.ml {
+  --ml-ink: var(--text, #17171a);
+  --ml-muted: var(--muted, #55555e);
+  --ml-line: var(--line, #d4d4da);
+  --ml-bg: var(--bg, #eeeef0);
+  --ml-surface: var(--surface, #f7f7f8);
+  --ml-accent: var(--accent, #0a7d55);
+  --ml-accent-soft: var(--accent-soft, rgb(10 125 85 / 0.1));
+  --ml-radius: var(--radius, 14px);
+  --ml-ease: var(--ease, cubic-bezier(0.16, 1, 0.3, 1));
+  --ml-miss: #c2382b;
+  --ml-miss-soft: rgb(194 56 43 / 0.09);
+  --ml-faint: #9d9da6;
+  --ml-active-line: rgb(23 23 26 / 0.035);
+  --ml-selection: rgb(10 125 85 / 0.16);
+  --ml-kw: var(--ml-ink);
+  --ml-str: #0a7d55;
+  --ml-num: #1d4ed8;
+  --ml-comment: #85858f;
+  --ml-fn: var(--ml-ink);
+  --ml-punct: #6a6a73;
+  display: grid;
+  gap: 18px;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ml {
+    --ml-miss: #ff7a6b;
+    --ml-miss-soft: rgb(255 122 107 / 0.11);
+    --ml-faint: #5c5c66;
+    --ml-active-line: rgb(255 255 255 / 0.03);
+    --ml-selection: rgb(60 201 147 / 0.2);
+    --ml-str: #3cc993;
+    --ml-num: #8ab4ff;
+    --ml-comment: #7c7c87;
+    --ml-punct: #a3a3ad;
+  }
+}
+
+.ml .mono {
+  font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* The host's .btn sets display, which would beat the hidden attribute. */
+.ml [hidden] {
+  display: none !important;
+}
+
+/* Operators are the subject here: "<=" must read as two characters, never as a ligature. */
+.ml .mono,
+.ml .cm-content,
+.ml code {
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+}
+
+/* Example picker */
+
+.ml-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+  margin: -2px;
+}
+
+.ml-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ml-tab {
+  appearance: none;
+  flex: none;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--ml-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ml-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 560;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s var(--ml-ease), border-color 0.2s var(--ml-ease), background-color 0.2s var(--ml-ease);
+}
+
+.ml-tab:hover {
+  color: var(--ml-ink);
+  border-color: var(--ml-ink);
+}
+
+.ml-tab[aria-selected="true"] {
+  background: var(--ml-ink);
+  border-color: var(--ml-ink);
+  color: var(--ml-bg);
+}
+
+/* Layout: editors on the left, the panel on the right; on a phone the panel comes first,
+   so the button and the results sit together above the code. */
+
+.ml-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(0, 0.78fr);
+  grid-template-areas: "editors panel";
+  gap: 20px;
+  align-items: start;
+}
+
+.ml-editors {
+  grid-area: editors;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ml-panel {
+  grid-area: panel;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 22px;
+  background: var(--ml-surface);
+  border: 1px solid var(--ml-line);
+  border-radius: var(--ml-radius);
+}
+
+.ml-pane {
+  background: var(--ml-surface);
+  border: 1px solid var(--ml-line);
+  border-radius: var(--ml-radius);
+  overflow: hidden;
+}
+
+.ml-pane__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--ml-line);
+  font-size: 14px;
+}
+
+.ml-pane__title {
+  font-weight: 620;
+}
+
+.ml-pane__note {
+  color: var(--ml-muted);
+  font-size: 13px;
+}
+
+.ml-pane__editor .cm-editor {
+  max-height: 780px;
+}
+
+.ml-pane__editor .cm-scroller {
+  overflow: auto;
+}
+
+/* Panel */
+
+.ml-blurb {
+  margin: 0;
+  color: var(--ml-muted);
+}
+
+.ml-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The host's .btn was written for links; as <button>s they also need the browser defaults off. */
+.ml button.btn {
+  font-family: inherit;
+  border: 0;
+  cursor: pointer;
+}
+
+.ml button.btn--ghost {
+  background: transparent;
+  border: 1px solid var(--ml-line);
+}
+
+.ml button.btn--ghost:hover {
+  border-color: var(--ml-ink);
+}
+
+.ml-run[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+  transform: none;
+}
+
+.ml-shortcut {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--ml-faint);
+}
+
+@media (hover: none) {
+  .ml-shortcut {
+    display: none;
+  }
+}
+
+.ml-status {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ml-muted);
+}
+
+.ml-status:empty {
+  display: none;
+}
+
+.ml-status.is-error {
+  color: var(--ml-miss);
+}
+
+.ml-results {
+  display: grid;
+  gap: 14px;
+  transition: opacity 0.3s var(--ml-ease);
+}
+
+.ml-results[hidden] {
+  display: none;
+}
+
+.ml-results.is-stale {
+  opacity: 0.45;
+}
+
+.ml-meter {
+  display: flex;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ml-meter li {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ml-line);
+  transition: background-color 0.25s var(--ml-ease), transform 0.25s var(--ml-ease);
+}
+
+.ml-meter li[data-state="caught"] {
+  background: var(--ml-accent);
+}
+
+.ml-meter li[data-state="missed"] {
+  background: var(--ml-miss);
+  transform: scaleY(1.5);
+}
+
+.ml-score__title {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  font-weight: 620;
+}
+
+.ml-score__sub {
+  margin: 4px 0 0;
+  color: var(--ml-muted);
+}
+
+.ml-results.is-clean .ml-score__title {
+  color: var(--ml-accent);
+}
+
+.ml-fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ml-fixes:empty {
+  display: none;
+}
+
+.ml button.ml-fix {
+  border-color: var(--ml-accent);
+  color: var(--ml-accent);
+}
+
+.ml button.ml-fix:hover {
+  background: var(--ml-accent-soft);
+}
+
+/* A missed change */
+
+.ml-missed {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ml-missed:empty {
+  display: none;
+}
+
+.ml-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: var(--ml-bg);
+  border: 1px solid var(--ml-line);
+  border-radius: 10px;
+}
+
+.ml-card--noted {
+  border-color: var(--ml-miss);
+  box-shadow: 0 0 0 3px var(--ml-miss-soft);
+}
+
+.ml-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ml-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--ml-miss-soft);
+  color: var(--ml-miss);
+  font-size: 12px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.ml-chip--quiet {
+  background: var(--ml-accent-soft);
+  color: var(--ml-ink);
+}
+
+.ml-card__line {
+  appearance: none;
+  border: 0;
+  padding: 2px 0;
+  background: none;
+  color: var(--ml-muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--ml-line);
+  text-underline-offset: 3px;
+}
+
+.ml-card__line:hover {
+  color: var(--ml-ink);
+}
+
+.ml-diff {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--ml-surface);
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.ml-diff__row {
+  display: block;
+}
+
+.ml-diff__row--old {
+  color: var(--ml-muted);
+}
+
+.ml-diff__sign {
+  display: inline-block;
+  width: 1.4em;
+  color: var(--ml-faint);
+}
+
+.ml-diff del {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: var(--ml-muted);
+}
+
+.ml-diff ins {
+  text-decoration: none;
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: var(--ml-miss-soft);
+  color: var(--ml-miss);
+  font-weight: 600;
+}
+
+.ml-card__text,
+.ml-card__hint {
+  margin: 0;
+  font-size: 14px;
+}
+
+.ml-card__text a {
+  color: var(--ml-ink);
+  text-decoration-color: var(--ml-miss);
+  text-underline-offset: 3px;
+}
+
+.ml-card__hint {
+  color: var(--ml-muted);
+}
+
+.ml-card__hint strong {
+  color: var(--ml-ink);
+  font-weight: 600;
+}
+
+.ml-false-alarm {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ml-muted);
+}
+
+.ml-false-alarm a {
+  color: var(--ml-ink);
+  text-underline-offset: 3px;
+}
+
+/* Caught changes, folded away */
+
+.ml-caught summary {
+  cursor: pointer;
+  color: var(--ml-muted);
+  font-size: 14px;
+}
+
+.ml-caught summary:hover {
+  color: var(--ml-ink);
+}
+
+.ml-caught ol {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.ml-caught li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.ml-caught__line {
+  color: var(--ml-muted);
+  font-size: 12px;
+}
+
+.ml-caught__change {
+  font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+.ml-caught__how {
+  color: var(--ml-muted);
+}
+
+/* Inside the editor */
+
+.ml .ml-mark {
+  background: var(--ml-miss-soft);
+  border-radius: 3px;
+  text-decoration: underline wavy var(--ml-miss);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  text-decoration-skip-ink: none;
+}
+
+.ml .ml-flash {
+  animation: ml-flash 1.6s var(--ml-ease);
+}
+
+@keyframes ml-flash {
+  from {
+    background: var(--ml-miss-soft);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-meter li,
+  .ml-results,
+  .ml-tab {
+    transition: none;
+  }
+  .ml .ml-flash {
+    animation: none;
+    background: var(--ml-miss-soft);
+  }
+}
+
+@media (max-width: 960px) {
+  .ml-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "panel" "editors";
+  }
+  .ml-pane__editor .cm-editor {
+    max-height: 420px;
+  }
+}
+
+@media (max-width: 520px) {
+  .ml-panel {
+    padding: 18px;
+  }
+  .ml-pane__editor .cm-editor {
+    font-size: 12.5px;
+  }
+}

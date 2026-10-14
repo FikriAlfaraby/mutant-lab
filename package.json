@@ -1,0 +1,47 @@
+{
+  "name": "mutant-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mutation testing in the browser: change your code one small thing at a time, rerun your tests, see which bugs slip through.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Fikri Alfaraby <fikrialfaraby04@gmail.com>",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "demo": "node scripts/build.mjs && node scripts/serve.mjs dist 4180",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "e2e": "node scripts/build.mjs && node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@lezer/highlight": "^1.2.5",
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5",
+    "codemirror": "^6.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "playwright-core": "^1.64.0",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.71.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FikriAlfaraby/mutant-lab.git"
+  },
+  "homepage": "https://fikrialfaraby.com/mutants/",
+  "engines": {
+    "node": ">=23.6"
+  }
+}
