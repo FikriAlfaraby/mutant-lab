@@ -83,3 +83,44 @@ test("every mutant of every example still parses", () => {
     }
   }
 })
+
+test("names inherited from Object.prototype are not operators", () => {
+  const source = "function digits(n) { return n.toString().length + n.valueOf() }"
+  for (const m of findMutants(source)) {
+    assert.doesNotMatch(m.replacement, /function|native code/, `${m.original} -> ${m.replacement}`)
+  }
+  assert.deepEqual(describeAll("const ok = x.hasOwnProperty('a')"), [])
+})
+
+test("a change that would glue onto its neighbour gets a space", () => {
+  const plus = findMutants("const d = a+-b").find((m) => m.original === "+")
+  assert.ok(plus)
+  assert.equal(applyMutant("const d = a+-b", plus), "const d = a- -b")
+  const not = findMutants("const t = typeof!x").find((m) => m.operator === "unary")
+  assert.ok(not)
+  assert.equal(applyMutant("const t = typeof!x", not), "const t = typeof x")
+})
+
+test("changes that cannot parse are dropped, and so are duplicates", () => {
+  const source = "const f = !function () { return 1 }()\nconst g = !!x"
+  for (const m of findMutants(source)) {
+    assert.doesNotThrow(() => parse(applyMutant(source, m), { ecmaVersion: "latest" }), `${m.original} -> ${m.replacement}`)
+  }
+  const outputs = findMutants(source).map((m) => applyMutant(source, m))
+  assert.equal(new Set(outputs).size, outputs.length)
+})
+
+test("any kind of white space may sit before an operator", () => {
+  assert.deepEqual(describeAll("const ok = a < b").slice(0, 1), ["boundary <-><= @1:13"])
+})
+
+test("text built with + stays text all the way along", () => {
+  assert.deepEqual(describeAll("const s = 'n=' + n + m"), [])
+})
+
+test("import and export are reported as such", () => {
+  assert.throws(
+    () => findMutants("export function f() {}"),
+    (err: unknown) => err instanceof ParseError && err.kind === "module",
+  )
+})

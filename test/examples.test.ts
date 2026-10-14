@@ -79,3 +79,9 @@ test("your own code: 1900 and 2000 are the missing tests", () => {
   const more = `${ex.tests}\ntest("1900 is not", () => expect(isLeapYear(1900)).toBe(false))\ntest("2000 is", () => expect(isLeapYear(2000)).toBe(true))`
   assert.deepEqual(missed(ex, more), [])
 })
+
+test("the session example still makes exactly the 34 changes the page and the home card quote", () => {
+  const ex = example("sessions")
+  const outputs = findMutants(ex.code)
+  assert.equal(outputs.length, 34)
+})

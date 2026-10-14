@@ -1,7 +1,7 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands"
 import { javascript } from "@codemirror/lang-javascript"
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language"
-import { EditorState, StateEffect, StateField } from "@codemirror/state"
+import { EditorState, StateEffect, StateField, Transaction } from "@codemirror/state"
 import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view"
 import { tags as t } from "@lezer/highlight"
 import type { Range } from "@codemirror/state"
@@ -120,7 +120,12 @@ export class CodeEditor {
   /** Replace the whole text without counting it as a user edit. */
   load(text: string): void {
     this.silent = true
-    this.view.dispatch({ changes: { from: 0, to: this.view.state.doc.length, insert: text } })
+    // Not in the undo history: Ctrl+Z after switching examples must not bring back the old one.
+    this.view.dispatch({
+      changes: { from: 0, to: this.view.state.doc.length, insert: text },
+      selection: { anchor: 0 },
+      annotations: Transaction.addToHistory.of(false),
+    })
     this.silent = false
   }
 

@@ -20,8 +20,6 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, 
 interface Draft {
   code: string
   tests: string
-  /** Indexes of the example's fixes already appended to the tests. */
-  applied: Set<number>
 }
 
 interface Run {
@@ -131,12 +129,14 @@ export class App {
 
     this.select(first)
     this.loadShared()
+    // A shared link pasted into this same tab changes only the hash; load it then too.
+    window.addEventListener("hashchange", () => this.loadShared())
   }
 
   private get draft(): Draft {
     let draft = this.drafts.get(this.example.id)
     if (!draft) {
-      draft = { code: this.example.code, tests: this.example.tests, applied: new Set() }
+      draft = { code: this.example.code, tests: this.example.tests }
       this.drafts.set(this.example.id, draft)
     }
     return draft
@@ -199,10 +199,7 @@ export class App {
 
   /** Reset is offered only once there is something to undo. */
   private syncReset(): void {
-    const draft = this.drafts.get(this.example.id)
-    const changed =
-      this.codeEditor.text !== this.example.code || this.testsEditor.text !== this.example.tests || (draft?.applied.size ?? 0) > 0
-    this.resetButton.hidden = !changed
+    this.resetButton.hidden = this.codeEditor.text === this.example.code && this.testsEditor.text === this.example.tests
   }
 
   private edited(): void {
@@ -237,7 +234,7 @@ export class App {
     } catch (err) {
       if (!(err instanceof ParseError)) throw err
       this.results.hidden = true
-      this.say(TEXT.parseError(err.line, err.message), "error")
+      this.say(err.kind === "module" ? TEXT.noModules(err.line) : TEXT.parseError(err.line, err.message), "error")
       const line = this.codeEditor.view.state.doc.line(Math.min(err.line, this.codeEditor.view.state.doc.lines))
       this.codeEditor.reveal(line.from)
       return
@@ -319,7 +316,9 @@ export class App {
     this.scoreSub.textContent = missed.length ? TEXT.subSome(missed.length, run.testCount) : TEXT.subAll
     this.results.classList.toggle("is-clean", missed.length === 0)
 
-    const open = missed.length ? this.example.fixes.map((fix, i) => ({ fix, i })).filter(({ i }) => !this.draft.applied.has(i)) : []
+    // A fix is offered while its test is not in the tests box (undoing it brings the button back).
+    const tests = this.testsEditor.text
+    const open = missed.length ? this.example.fixes.map((fix, i) => ({ fix, i })).filter(({ fix }) => !tests.includes(fix.code.trim())) : []
     this.fixes.replaceChildren(
       ...open.map(({ fix, i }) => {
         const button = h("button", { class: "btn btn--ghost btn--small ml-fix", type: "button" }, fix.label)
@@ -339,6 +338,8 @@ export class App {
     this.caughtSummary.textContent = TEXT.caughtSummary(caught.length)
     this.caughtList.replaceChildren(...caught.map((r) => this.caughtRow(r)))
 
+    // Typing during the run moved the text under the results; underlines would land on the wrong code.
+    if (this.changedSinceRun) return
     this.codeEditor.mark(
       missed.map(({ mutant: m }) => ({
         from: m.start,
@@ -351,7 +352,6 @@ export class App {
   private applyFix(index: number): void {
     const fix = this.example.fixes[index]
     if (!fix || this.running) return
-    this.draft.applied.add(index)
     this.testsEditor.append(fix.code)
     this.afterRun = TEXT.fixAdded
     this.syncReset()

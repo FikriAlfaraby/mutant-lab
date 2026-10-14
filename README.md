@@ -27,9 +27,11 @@ On the page, one button adds that test and the bug is caught.
 2. **Make one change at a time.** Each candidate gets its own copy of the code with exactly one
    thing changed. Every copy is checked to still parse.
 3. **Rerun the tests in a sandbox.** The original code runs first: if its own tests fail, no change
-   can be judged, and the page says so. Then each copy runs in a pool of Web Workers. A copy that
-   runs longer than ten times the original (400 ms at least) has its worker terminated and counts
-   as caught, so an endless loop cannot freeze the page.
+   can be judged, and the page says so. Then each copy runs in its own fresh Web Worker, a few at
+   a time, so a timer one copy leaves behind cannot fail another. A copy that runs longer than ten
+   times the original (400 ms at least) has its worker terminated and counts as caught, so an
+   endless loop cannot freeze the page. The sandbox has no network: `fetch`, XHR, sockets,
+   `importScripts` and nested workers are removed before any code runs.
 
 A change is **caught** when a test fails, the code crashes, or it never finishes. It is **missed**
 when every test still passes. Not every miss is a bug: some changes cannot alter what the code

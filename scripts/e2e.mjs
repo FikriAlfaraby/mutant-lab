@@ -103,6 +103,37 @@ try {
   assert.ok(Date.now() - started < 8000, `endless loops took ${Date.now() - started} ms`)
   assert.ok((await page.locator(".ml-caught li", { hasText: "never finished" }).count()) > 0)
 
+  // 5. Undo never carries one example's code into another.
+  await page.getByRole("tab", { name: "Free shipping" }).click()
+  const codeBox = page.locator(".ml-pane").first().locator(".cm-content")
+  await codeBox.click()
+  await page.keyboard.press("ControlOrMeta+z")
+  await page.keyboard.press("ControlOrMeta+z")
+  assert.match(await codeBox.innerText(), /^\/\/ Orders of Rp 100\.000/, "undo after a tab switch changed the example")
+
+  // 6. A shared link pasted into the same tab loads without a reload.
+  const shared = Buffer.from(JSON.stringify({ code: "function add(a, b) { return a + b }\n", tests: 'test("adds", () => expect(add(1, 2)).toBe(3))\n' }))
+    .toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+  await page.evaluate((fragment) => { location.hash = `code=${fragment}` }, shared)
+  await page.waitForFunction(() => document.querySelector(".ml-pane .cm-content")?.textContent?.includes("function add"))
+  assert.equal(await page.getByRole("tab", { name: "Your own code" }).getAttribute("aria-selected"), "true")
+
+  // 7. Timers the code leaves behind cannot change other verdicts, and the sandbox has no network.
+  await codeBox.click()
+  await page.keyboard.press("ControlOrMeta+a")
+  await page.keyboard.insertText("function one() { return 1 }\nsetTimeout(function tick() { setTimeout(tick, 2); throw new Error('late tick') }, 30)\n")
+  await tests.click()
+  await page.keyboard.press("ControlOrMeta+a")
+  await page.keyboard.insertText('test("one", () => expect(one()).toBe(1))\ntest("no network", () => expect(typeof fetch).toBe("undefined"))\n')
+  const scores = []
+  for (let i = 0; i < 3; i += 1) {
+    await run()
+    await page.waitForFunction(() => !document.querySelector(".ml-run")?.hasAttribute("disabled") && document.querySelector(".ml-score__title")?.textContent)
+    scores.push(await title.textContent())
+  }
+  assert.equal(new Set(scores).size, 1, `scores differed between identical runs: ${scores.join(" / ")}`)
+  assert.match(scores[0] ?? "", /^Your tests caught/)
+
   assert.deepEqual(problems, [])
   console.log("e2e: PASS")
 } finally {

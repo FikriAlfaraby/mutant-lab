@@ -18,7 +18,7 @@ export const TEXT = {
   linkInBar: "The link is in the address bar",
 
   progress: (done: number, total: number) => `Testing change ${done} of ${total}…`,
-  scoreAll: (total: number) => `Your tests caught all ${total} changes.`,
+  scoreAll: (total: number) => (total === 1 ? "Your tests caught the only change." : `Your tests caught all ${total} changes.`),
   scoreSome: (caught: number, total: number) => `Your tests caught ${caught} of ${total} changes.`,
   subAll: "Nothing slipped through.",
   subSome: (missed: number, tests: number) =>
@@ -43,6 +43,7 @@ export const TEXT = {
   shortcut: (mac: boolean) => `or press ${mac ? "⌘" : "Ctrl"} Enter in an editor`,
   nothingToChange: "Nothing here to change. The lab changes comparisons, maths, branches, numbers and true/false values.",
   parseError: (line: number, message: string) => `Line ${line}: ${message}. Fix the code, then try again.`,
+  noModules: (line: number) => `Line ${line}: import and export can't run here. Write plain functions, then try again.`,
   baseline(problem: BaselineProblem): string {
     switch (problem.kind) {
       case "no-tests":

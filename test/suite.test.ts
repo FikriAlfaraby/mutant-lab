@@ -63,3 +63,30 @@ test("expect matchers pass and fail with readable messages", () => {
   assert.throws(() => expect(() => 1).toThrow(), /returned normally/)
   assert.throws(() => expect("x").toBeGreaterThan(1), /expected a number/)
 })
+
+test("toEqual compares sets, maps, dates and errors by what they hold", () => {
+  expect(new Set([2, 4])).toEqual(new Set([4, 2]))
+  assert.throws(() => expect(new Set([2, 4])).toEqual(new Set([1, 3])))
+  expect(new Map([["a", 1]])).toEqual(new Map([["a", 1]]))
+  assert.throws(() => expect(new Map([["a", 1]])).toEqual(new Map([["a", 2]])))
+  assert.throws(() => expect(new Date(0)).toEqual(new Date(1)))
+  assert.throws(() => expect(new Error("a")).toEqual(new Error("b")))
+  assert.throws(() => expect([1]).toEqual({ 0: 1 }))
+})
+
+test(".not, the extra matchers and an unknown matcher", () => {
+  expect(1).not.toBe(2)
+  assert.throws(() => expect(1).not.toBe(1), /expected not/)
+  expect(null).toBeNull()
+  expect("rupiah").toMatch(/^rup/)
+  expect(() => {
+    throw new Error("budget missing")
+  }).toThrow("budget")
+  assert.throws(() => expect(() => { throw new Error("x") }).toThrow("budget"), /expected an error matching/)
+  assert.throws(() => (expect(1) as unknown as Record<string, () => void>).toBeNaN?.(), /toBeNaN is not supported here/)
+})
+
+test("an unknown matcher fails the test with a clear message", () => {
+  const out = runSuite("function f() { return 1 }", 'test("t", () => expect(f()).toBeOne())')
+  assert.match(out.tests[0]?.message ?? "", /toBeOne is not supported here/)
+})
